@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>图的深度优先搜索遍历 (DFS) 可视化教学</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f0f2f5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        padding: 20px;
+        height: 100vh;
+        box-sizing: border-box;
+      }
+
+      h2 {
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .controls {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+      }
+
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 5px;
+        transition: background 0.2s;
+      }
+
+      .btn-start {
+        background-color: #4caf50;
+        color: white;
+      }
+      .btn-start:hover {
+        background-color: #45a049;
+      }
+      .btn-start:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      .btn-reset {
+        background-color: #f44336;
+        color: white;
+      }
+      .btn-reset:hover {
+        background-color: #d32f2f;
+      }
+
+      .btn-pause {
+        background-color: #2196f3;
+        color: white;
+      }
+      .btn-pause:hover {
+        background-color: #1976d2;
+      }
+      .btn-pause:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      .main-container {
+        display: flex;
+        gap: 20px;
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      /* 图形区域 */
+      .graph-container {
+        position: relative;
+        width: 600px;
+        height: 400px;
+        border: 2px solid #eee;
+        border-radius: 8px;
+        background-color: #fafafa;
+      }
+
+      /* SVG 线条层 */
+      svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+
+      line {
+        stroke: #ccc;
+        stroke-width: 2;
+        transition: stroke 0.5s;
+      }
+
+      /* 节点样式 */
+      .node {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: white;
+        border: 2px solid #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        z-index: 2;
+        transition: all 0.4s ease;
+        transform: translate(-50%, -50%); /* 居中定位 */
+      }
+
+      /* 状态类 */
+      .node.active {
+        background-color: #ff9800; /* 橙色：当前 */
+        color: white;
+        border-color: #ff9800;
+        transform: translate(-50%, -50%) scale(1.2);
+        box-shadow: 0 0 15px rgba(255, 152, 0, 0.6);
+      }
+
+      .node.visited {
+        background-color: #4caf50; /* 绿色：已完成 */
+        color: white;
+        border-color: #4caf50;
+      }
+
+      .node.backtracking {
+        background-color: #2196f3; /* 蓝色：回溯中 */
+        color: white;
+        border-color: #2196f3;
+        transform: translate(-50%, -50%) scale(1.1);
+      }
+
+      /* 日志区域 */
+      .log-panel {
+        width: 250px;
+        height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        background: #1e1e1e;
+        color: #0f0;
+        padding: 10px;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 14px;
+        border-radius: 8px;
+      }
+      .log-entry {
+        margin-bottom: 5px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 2px;
+      }
+      .highlight-text {
+        color: #ff9800;
+        font-weight: bold;
+      }
+
+      /* 速度滑块 */
+      .speed-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+        font-size: 14px;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>图的深度优先搜索遍历 (DFS) 可视化教学</h2>
+
+    <div class="controls">
+      <button class="btn-start" onclick="startDFS()">开始遍历</button>
+      <button class="btn-reset" onclick="resetGraph()">重置</button>
+      <button class="btn-pause" onclick="togglePause()">暂停</button>
+    </div>
+    <div class="speed-control">
+      <span>速度:</span>
+      <input
+        type="range"
+        id="speedRange"
+        min="200"
+        max="2000"
+        value="1000"
+        step="100"
+      />
+      <span id="speedVal">1.0秒</span>
+    </div>
+
+    <div class="main-container">
+      <div class="graph-container" id="graphArea">
+        <svg id="svgLines"></svg>
+      </div>
+
+      <div class="log-panel" id="logPanel">
+        <div class="log-entry">> 等待开始...</div>
+      </div>
+    </div>
+
+    <script>
+      // 说明：
+      // 本示例图结构对应课件中的无向图 G2（见 Ch07 图 2024.pdf 第 7 页和第 30、37 页），
+      // 顶点集 V = {A, B, C, D, E, F}，边集 E = {(A,B), (A,E), (B,E), (C,D), (D,F), (B,F), (C,F)}。
+      // 邻接关系使用邻接表表示，对应课件 7.2 图的邻接表存储表示部分。
+      const graphData = {
+        // 布局大致参照课件中 G2 的位置（P7、P30），只是做了适当缩放
+        A: { x: 220, y: 260, neighbors: ["B", "E"] }, // (A,B), (A,E)
+        B: { x: 160, y: 160, neighbors: ["A", "E", "F"] }, // (B,A), (B,E), (B,F)
+        C: { x: 260, y: 140, neighbors: ["D", "F"] }, // (C,D), (C,F)
+        D: { x: 340, y: 210, neighbors: ["C", "F"] }, // (D,C), (D,F)
+        E: { x: 360, y: 290, neighbors: ["A", "B"] }, // (E,A), (E,B)
+        F: { x: 220, y: 340, neighbors: ["B", "C", "D"] }, // (F,B), (F,C), (F,D)
+      };
+
+      const container = document.getElementById("graphArea");
+      const svgLines = document.getElementById("svgLines");
+      const logPanel = document.getElementById("logPanel");
+      let isRunning = false;
+      let isPaused = false;
+
+      // === 初始化渲染 ===
+      function initGraph() {
+        container.innerHTML = '<svg id="svgLines"></svg>'; // 清空但保留SVG容器
+        const svg = document.getElementById("svgLines");
+
+        // 1. 绘制线条 (Edges)
+        for (let nodeId in graphData) {
+          const node = graphData[nodeId];
+          node.neighbors.forEach((neighborId) => {
+            // 无向图：为避免重复画线，只在 nodeId < neighborId 时绘制一条线
+            if (nodeId < neighborId) {
+              const neighbor = graphData[neighborId];
+              const line = document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "line"
+              );
+              line.setAttribute("x1", node.x);
+              line.setAttribute("y1", node.y);
+              line.setAttribute("x2", neighbor.x);
+              line.setAttribute("y2", neighbor.y);
+              line.setAttribute("id", `line-${nodeId}-${neighborId}`);
+              svg.appendChild(line);
+            }
+          });
+        }
+
+        // 2. 绘制节点 (Nodes)
+        for (let nodeId in graphData) {
+          const node = graphData[nodeId];
+          const div = document.createElement("div");
+          div.className = "node";
+          div.id = `node-${nodeId}`;
+          div.innerText = nodeId;
+          div.style.left = node.x + "px";
+          div.style.top = node.y + "px";
+          container.appendChild(div);
+        }
+      }
+
+      // === 辅助函数 ===
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      function log(message) {
+        const div = document.createElement("div");
+        div.className = "log-entry";
+        div.innerHTML = `> ${message}`;
+        logPanel.appendChild(div);
+        logPanel.scrollTop = logPanel.scrollHeight; // 自动滚动到底部
+      }
+
+      function getDelay() {
+        return parseInt(document.getElementById("speedRange").value);
+      }
+
+      // 更新速度显示
+      document.getElementById("speedRange").oninput = function () {
+        document.getElementById("speedVal").innerText =
+          (this.value / 1000).toFixed(1) + "秒";
+      };
+
+      // === 核心 DFS 算法 ===
+      async function startDFS() {
+        if (isRunning) return;
+        isRunning = true;
+        document.querySelector(".btn-start").disabled = true;
+        logPanel.innerHTML =
+          '<div class="log-entry" style="color:yellow">--- 开始 DFS 遍历 (从顶点 A 出发，算法对应课件 7.3 深度优先搜索遍历) ---</div>';
+
+        const visited = new Set();
+        await dfsRecursive("A", visited);
+
+        logPanel.innerHTML +=
+          '<div class="log-entry" style="color:#4CAF50; font-weight:bold">--- 遍历完成 ---</div>';
+        isRunning = false;
+        document.querySelector(".btn-start").disabled = false;
+      }
+
+      async function dfsRecursive(nodeId, visited) {
+        if (isPaused) {
+          // 如果当前是暂停状态，则等待恢复
+          await new Promise((resolve) => {
+            const checkResume = setInterval(() => {
+              if (!isPaused) {
+                clearInterval(checkResume);
+                resolve();
+              }
+            }, 100);
+          });
+        }
+
+        const nodeEl = document.getElementById(`node-${nodeId}`);
+
+        // 1. 标记当前节点为活跃 (正在访问)
+        nodeEl.classList.add("active");
+        visited.add(nodeId);
+        log(
+          `SetTag(${nodeId}, true); 访问顶点 <span class="highlight-text">${nodeId}</span>`
+        );
+
+        await sleep(getDelay());
+
+        const neighbors = graphData[nodeId].neighbors;
+
+        // 2. 遍历邻居
+        if (neighbors.length > 0) {
+          for (let neighborId of neighbors) {
+            if (!visited.has(neighborId)) {
+              log(
+                `${nodeId} 发现未访问邻居 ${neighborId}，<span style="color:#00ffff">深入...</span>`
+              );
+
+              // 递归调用
+              await dfsRecursive(neighborId, visited);
+
+              // === 回溯点 ===
+              // 当递归函数返回时，意味着子树遍历完了，我们“回”到了当前节点
+              log(
+                `从 ${neighborId} <span style="color:#2196F3">回溯</span> 到 ${nodeId}`
+              );
+
+              // 视觉效果：暂时闪烁蓝色表示回溯经过这里
+              nodeEl.classList.remove("active"); // 先移除 active
+              nodeEl.classList.add("backtracking");
+              await sleep(getDelay() / 2); // 回溯动画快一点
+              nodeEl.classList.remove("backtracking");
+              nodeEl.classList.add("active"); // 恢复 active 状态表示还在处理这个栈帧
+            }
+          }
+        } else {
+          log(
+            `${nodeId} 没有未访问的邻接点，对应 DFS 递归返回（课件 P48 DFS 伪代码中的递归结束条件）`
+          );
+          await sleep(getDelay() / 2);
+        }
+
+        // 3. 标记为完全处理完毕 (离开栈)
+        nodeEl.classList.remove("active");
+        nodeEl.classList.add("visited");
+        log(`节点 ${nodeId} 处理完毕。`);
+      }
+
+      function resetGraph() {
+        if (isRunning) return; // 运行时禁止重置
+        logPanel.innerHTML = '<div class="log-entry">> 已重置</div>';
+        initGraph();
+      }
+
+      function togglePause() {
+        if (!isRunning) return; // 仅在运行时允许暂停/恢复
+        isPaused = !isPaused;
+        const btnPause = document.querySelector(".btn-pause");
+        if (isPaused) {
+          btnPause.innerText = "恢复";
+          log("算法已暂停，当前 DFS 递归在栈中等待，对应课件中递归过程暂时停在某一顶点的状态");
+        } else {
+          btnPause.innerText = "暂停";
+          log("算法继续运行中，原有 DFS 递归从暂停处继续，对应课件中递归调用的自然推进");
+        }
+      }
+
+      // 启动初始化
+      initGraph();
+    </script>
+  </body>
+</html>

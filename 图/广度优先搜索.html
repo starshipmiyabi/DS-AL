@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图的广度优先搜索遍历 (BFS) 可视化教学</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h2 { color: #333; margin-bottom: 10px; }
+        
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+
+        .btn-start { background-color: #2196F3; color: white; } /* BFS用蓝色主题 */
+        .btn-start:hover { background-color: #1976D2; }
+        .btn-start:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        .btn-reset { background-color: #f44336; color: white; }
+        .btn-reset:hover { background-color: #d32f2f; }
+        .btn-pause { background-color: #9E9E9E; color: white; }
+        .btn-pause:hover { background-color: #757575; }
+        .btn-pause:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 左侧区域：包含图和队列条 */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 队列显示条 */
+        .queue-container {
+            width: 600px;
+            height: 60px;
+            background: #eee;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            gap: 10px;
+            overflow-x: auto;
+            border: 2px solid #ccc;
+            position: relative;
+        }
+        .queue-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            font-size: 14px;
+            font-weight: bold;
+            color: #666;
+        }
+        .queue-item {
+            width: 40px;
+            height: 40px;
+            background: #FFC107; /* 黄色表示在队列中 */
+            color: #333;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        @keyframes slideIn {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* 图形区域 */
+        .graph-container {
+            position: relative;
+            width: 600px;
+            height: 400px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        line {
+            stroke: #ccc;
+            stroke-width: 2;
+            transition: stroke 0.5s;
+        }
+
+        /* 节点样式 */
+        .node {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: white;
+            border: 2px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            z-index: 2;
+            transition: all 0.4s ease;
+            transform: translate(-50%, -50%);
+        }
+
+        /* BFS 状态颜色 */
+        .node.in-queue {
+            background-color: #FFC107; /* 黄色：已发现，加入队列 */
+            border-color: #FFA000;
+            color: #333;
+        }
+
+        .node.active {
+            background-color: #2196F3; /* 蓝色：正在处理（出队） */
+            color: white;
+            border-color: #1976D2;
+            transform: translate(-50%, -50%) scale(1.2);
+            box-shadow: 0 0 15px rgba(33, 150, 243, 0.6);
+        }
+
+        .node.visited {
+            background-color: #4CAF50; /* 绿色：处理完成 */
+            color: white;
+            border-color: #388E3C;
+        }
+
+        /* 日志区域 */
+        .log-panel {
+            width: 280px;
+            height: 475px; /* Match height of graph + queue bar */
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            background: #1e1e1e;
+            color: #0f0;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            border-radius: 8px;
+        }
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 2px; }
+        
+        /* 速度滑块 */
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 0;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>图的广度优先搜索遍历 (BFS) 可视化教学</h2>
+    
+    <div class="controls">
+        <button class="btn-start" onclick="startBFS()">开始 BFS 遍历</button>
+        <button class="btn-pause" onclick="togglePause()">暂停</button>
+        <button class="btn-reset" onclick="resetGraph()">重置</button>
+        
+        <div class="speed-control">
+            <span>速度:</span>
+            <input type="range" id="speedRange" min="200" max="2000" value="1000" step="100">
+            <span id="speedVal">1.0秒</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="left-panel">
+            <div class="graph-container" id="graphArea">
+                <svg id="svgLines"></svg>
+            </div>
+            
+            <div class="queue-container" id="queueVis">
+                <span class="queue-label">当前队列 (Queue - FIFO):</span>
+                </div>
+        </div>
+
+        <div class="log-panel" id="logPanel">
+            <div class="log-entry">> 等待开始...</div>
+        </div>
+    </div>
+
+    <script>
+        // === 数据结构：使用与课件相同的无向图 G2（方便与 DFS 示例对比） ===
+        // 说明：本图对应 Ch07 图 2024.pdf 中的无向图 G2，顶点集 V = {A, B, C, D, E, F}，
+        // 边集 E = {(A,B), (A,E), (B,E), (B,F), (C,D), (C,F), (D,F)}。
+        // 采用邻接表表示，方便对应课件 7.2 图的邻接表存储表示以及 7.3 广度优先搜索遍历图。
+        const graphData = {
+            // 坐标布局大致参照 DFS 可视化中的 G2
+            'A': { x: 220, y: 260, neighbors: ['B', 'E'] },          // (A,B), (A,E)
+            'B': { x: 160, y: 160, neighbors: ['A', 'E', 'F'] },      // (B,A), (B,E), (B,F)
+            'C': { x: 260, y: 140, neighbors: ['D', 'F'] },           // (C,D), (C,F)
+            'D': { x: 340, y: 210, neighbors: ['C', 'F'] },           // (D,C), (D,F)
+            'E': { x: 360, y: 290, neighbors: ['A', 'B'] },           // (E,A), (E,B)
+            'F': { x: 220, y: 340, neighbors: ['B', 'C', 'D'] }       // (F,B), (F,C), (F,D)
+        };
+
+        const container = document.getElementById('graphArea');
+        const queueVis = document.getElementById('queueVis');
+        const logPanel = document.getElementById('logPanel');
+        let isRunning = false;
+        let isPaused = false;
+
+        // === 初始化渲染 ===
+        function initGraph() {
+            container.innerHTML = '<svg id="svgLines"></svg>';
+            queueVis.innerHTML = '<span class="queue-label">当前队列 (Queue - FIFO):</span>';
+            const svg = document.getElementById('svgLines');
+            
+            // 绘制线条（无向图：只在 nodeId < neighborId 时画一条线，避免重复）
+            for (let nodeId in graphData) {
+                const node = graphData[nodeId];
+                node.neighbors.forEach(neighborId => {
+                    if (nodeId < neighborId) {
+                        const neighbor = graphData[neighborId];
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', node.x);
+                        line.setAttribute('y1', node.y);
+                        line.setAttribute('x2', neighbor.x);
+                        line.setAttribute('y2', neighbor.y);
+                        svg.appendChild(line);
+                    }
+                });
+            }
+
+            // 绘制节点
+            for (let nodeId in graphData) {
+                const node = graphData[nodeId];
+                const div = document.createElement('div');
+                div.className = 'node';
+                div.id = `node-${nodeId}`;
+                div.innerText = nodeId;
+                div.style.left = node.x + 'px';
+                div.style.top = node.y + 'px';
+                container.appendChild(div);
+            }
+        }
+
+        // === 辅助函数 ===
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        
+        function log(message, type = 'normal') {
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerHTML = `> ${message}`;
+            logPanel.appendChild(div);
+            logPanel.scrollTop = logPanel.scrollHeight;
+        }
+
+        function updateQueueVis(queue) {
+            // 清空除了label以外的内容
+            const label = queueVis.querySelector('.queue-label');
+            queueVis.innerHTML = '';
+            queueVis.appendChild(label);
+            
+            queue.forEach(nodeId => {
+                const div = document.createElement('div');
+                div.className = 'queue-item';
+                div.innerText = nodeId;
+                queueVis.appendChild(div);
+            });
+        }
+
+        function getDelay() {
+            return parseInt(document.getElementById('speedRange').value);
+        }
+
+        async function waitIfPaused() {
+            if (!isPaused) return;
+            await new Promise((resolve) => {
+                const checkResume = setInterval(() => {
+                    if (!isPaused) {
+                        clearInterval(checkResume);
+                        resolve();
+                    }
+                }, 100);
+            });
+        }
+
+        document.getElementById('speedRange').oninput = function() {
+            document.getElementById('speedVal').innerText = (this.value / 1000).toFixed(1) + "秒";
+        }
+
+        // === 核心 BFS 算法 ===
+        async function startBFS() {
+            if (isRunning) return;
+            isRunning = true;
+            isPaused = false;
+            document.querySelector('.btn-start').disabled = true;
+            const btnPause = document.querySelector('.btn-pause');
+            if (btnPause) btnPause.disabled = false, btnPause.innerText = '暂停';
+            logPanel.innerHTML = '<div class="log-entry" style="color:cyan">--- 开始 BFS 遍历 (从顶点 A 出发，对应课件 7.3 广度优先搜索遍历图，采用队列) ---</div>';
+
+            const queue = [];
+            const visited = new Set();
+
+            // 1. 初始状态：将 A 加入队列
+            queue.push('A');
+            visited.add('A');
+            
+            // 视觉更新：A 变黄
+            document.getElementById('node-A').classList.add('in-queue');
+            updateQueueVis(queue);
+            log('发现起点 A，执行 SetTag(A, true); visit(A); 并将 A <span style="color:#FFC107">加入队列 (EnQueue)</span>');
+            
+            await sleep(getDelay());
+
+            // 2. 循环处理队列
+            while (queue.length > 0) {
+                await waitIfPaused();
+                // --- 出队 (Dequeue) ---
+                const currentNodeId = queue.shift(); // 取出头部
+                updateQueueVis(queue); // 更新底部可视化队列
+                
+                const nodeEl = document.getElementById(`node-${currentNodeId}`);
+                nodeEl.classList.remove('in-queue');
+                nodeEl.classList.add('active'); // 变蓝，表示正在处理
+                
+                log(`从队列取出 <span style="color:#2196F3; font-weight:bold">${currentNodeId}</span>，处理中...`);
+                await sleep(getDelay());
+
+                // --- 遍历邻居 ---
+                const neighbors = graphData[currentNodeId].neighbors;
+                let foundNew = false;
+                
+                if (neighbors.length > 0) {
+                    for (let neighborId of neighbors) {
+                        await waitIfPaused();
+                        if (!visited.has(neighborId)) {
+                            // 发现新节点：对应课件 BFS 伪代码中的“SetTag(w, true); visit(w); EnQueue(w)”
+                            visited.add(neighborId); // SetTag(w, true)
+                            queue.push(neighborId);  // EnQueue(w)
+                            
+                            // 视觉：邻居变黄，表示被发现并进入队列
+                            document.getElementById(`node-${neighborId}`).classList.add('in-queue');
+                            log(`  - 发现邻接点 ${neighborId}，执行 SetTag(${neighborId}, true); visit(${neighborId}); 并<span style="color:#FFC107">入队 (EnQueue)</span>`);
+                            updateQueueVis(queue);
+                            foundNew = true;
+                            await sleep(getDelay() / 2);
+                        }
+                    }
+                }
+                
+                if (!foundNew) {
+                    log(`  (节点 ${currentNodeId} 没有未访问的邻居)`);
+                }
+
+                // --- 处理完毕 ---
+                nodeEl.classList.remove('active');
+                nodeEl.classList.add('visited'); // 变绿
+                await sleep(getDelay());
+            }
+
+            logPanel.innerHTML += '<div class="log-entry" style="color:#4CAF50; font-weight:bold">--- 队列为空，遍历结束 ---</div>';
+            isRunning = false;
+            isPaused = false;
+            document.querySelector('.btn-start').disabled = false;
+            const btnPauseEnd = document.querySelector('.btn-pause');
+            if (btnPauseEnd) btnPauseEnd.disabled = true;
+        }
+
+        function resetGraph() {
+            if (isRunning) return;
+            isPaused = false;
+            isRunning = false;
+            logPanel.innerHTML = '<div class="log-entry">> 已重置</div>';
+            initGraph();
+            const btnStart = document.querySelector('.btn-start');
+            if (btnStart) btnStart.disabled = false;
+            const btnPause = document.querySelector('.btn-pause');
+            if (btnPause) {
+                btnPause.disabled = true;
+                btnPause.innerText = '暂停';
+            }
+        }
+
+        function togglePause() {
+            if (!isRunning) return; // 仅在运行时允许暂停/恢复
+            isPaused = !isPaused;
+            const btnPause = document.querySelector('.btn-pause');
+            if (isPaused) {
+                if (btnPause) btnPause.innerText = '恢复';
+                log('算法已暂停，当前 BFS 在队列/邻接点处理处等待，对应课件中“队列暂不出队”的状态');
+            } else {
+                if (btnPause) btnPause.innerText = '暂停';
+                log('算法继续运行中，队列按广度优先顺序继续出队并访问邻接点');
+            }
+        }
+
+        initGraph();
+
+    </script>
+</body>
+</html>
