@@ -11,3 +11,9 @@ tp.cpp
 .AppleDouble
 .fseventsd
 .VolumeIcon.icns
+# 忽略 Mac 编译后的可执行文件和动态数据链文件夹
+*.dSYM/
+*.out
+*.o
+*.a
+*.dylib
