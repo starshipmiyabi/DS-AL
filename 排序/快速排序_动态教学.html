@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>快速排序动态演示（按课件：支点 + low/high 一次划分 + 递归）</title>
+  <style>
+    :root { --bg:#0b1020; --card:#121a33; --text:#e9ecff; --muted:#a9b2dd; --line:#2a3568; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", Arial; background:var(--bg); color:var(--text); }
+    header { padding:20px 18px 8px; max-width:1100px; margin:0 auto; }
+    h1 { margin:0 0 8px; font-size:20px; font-weight:750; }
+    .sub { color:var(--muted); font-size:13px; line-height:1.55; }
+    .wrap { max-width:1100px; margin:0 auto; padding:14px 18px 26px; display:grid; grid-template-columns: 1.2fr .8fr; gap:14px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    label { font-size:12px; color:var(--muted); }
+    textarea, input[type="text"]{
+      background:#0e1530; border:1px solid var(--line); color:var(--text);
+      border-radius:12px; padding:10px 12px; outline:none;
+    }
+    textarea{ width:100%; min-height:64px; resize:vertical; }
+    button{
+      background:#1a2450; color:var(--text); border:1px solid var(--line);
+      border-radius:12px; padding:9px 12px; cursor:pointer; font-weight:650;
+    }
+    button:hover{ filter:brightness(1.08); }
+    button:disabled{ opacity:.55; cursor:not-allowed; }
+    .pill{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:#0e1530; color:var(--muted); font-size:12px; }
+    .arr {
+      display:flex; gap:8px; flex-wrap:wrap; padding:10px; border-radius:12px; border:1px dashed #2a3568;
+      background: rgba(14,21,48,.45);
+    }
+    .cell{
+      position:relative; min-width:42px; height:44px; padding:0 10px;
+      border-radius:12px; border:1px solid var(--line); background:#0e1530;
+      display:flex; align-items:center; justify-content:center; font-weight:700;
+    }
+    .cell .idx { position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:11px; color:var(--muted); }
+    .cell.activeRange { outline:2px solid rgba(255,255,255,.12); }
+    .cell.pivot { outline:2px solid rgba(255, 215, 0, .75); }
+    .cell.low { box-shadow: 0 0 0 2px rgba(0, 255, 200, .35) inset; }
+    .cell.high { box-shadow: 0 0 0 2px rgba(255, 120, 120, .35) inset; }
+    .tag { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:11px; color:var(--muted); }
+    .tag strong{ color:var(--text); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .log { max-height:320px; overflow:auto; font-size:12px; line-height:1.55; padding:10px; border-radius:12px; border:1px solid var(--line); background:#0e1530; }
+    .log .line { padding:2px 0; color:var(--muted); }
+    .log .line strong { color:var(--text); }
+    .code {
+      white-space:pre; overflow:auto; font-size:12px; line-height:1.45;
+      padding:10px; border-radius:12px; border:1px solid var(--line); background:#0e1530;
+    }
+    .hl { background: rgba(255, 215, 0, .12); border-radius:6px; padding:0 4px; color:var(--text); }
+    .small { font-size:12px; color:var(--muted); line-height:1.55; }
+    .stack { font-size:12px; color:var(--muted); line-height:1.55; }
+    .stack .seg { margin:4px 0; padding:6px 8px; border-radius:12px; border:1px solid rgba(42,53,104,.8); background:rgba(14,21,48,.55); }
+    .stack .seg b{ color:var(--text); }
+    footer { max-width:1100px; margin:0 auto; padding:0 18px 22px; color:var(--muted); font-size:12px; }
+    a { color:#bcd1ff; }
+    @media (max-width: 980px){
+      .wrap{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>快速排序动态演示（按课件：支点 + low/high 一次划分 + 递归）</h1>
+    <div class="sub">
+      你可以输入一个整数序列，点击 <b>开始</b> 后用 <b>下一步</b> 或 <b>自动播放</b> 看完整过程。<br/>
+      本页实现的思想：先做“一次划分”（找支点，把小的放左边，大的放右边），再对两边子序列递归继续快排。
+    </div>
+  </header>
+
+  <div class="wrap">
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="pill">当前子序列：<span id="rangeLabel" class="mono">-</span></div>
+        <div class="pill">支点：<span id="pivotLabel" class="mono">-</span></div>
+        <div class="pill">low/high：<span id="lhLabel" class="mono">-</span></div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <label>输入数组（逗号/空格分隔均可）</label>
+      <textarea id="arrInput"></textarea>
+
+      <div style="height:10px"></div>
+
+      <div class="row">
+        <button id="btnExample">填入课件示例</button>
+        <button id="btnReset">重置</button>
+        <button id="btnStart">开始</button>
+        <button id="btnStep" disabled>下一步</button>
+        <button id="btnAuto" disabled>自动播放</button>
+        <span class="pill">速度：
+          <input id="speed" type="text" value="550" style="width:70px; text-align:center;" class="mono" />
+          ms/步
+        </span>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <label>数组可视化</label>
+      <div id="arrView" class="arr" aria-label="array visualization"></div>
+
+      <div style="height:12px"></div>
+
+      <label>步骤日志（每次动作尽量“原子化”：high--、low++、交换）</label>
+      <div id="log" class="log"></div>
+    </section>
+
+    <aside class="card">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div style="flex:1">
+          <div style="font-weight:800; margin-bottom:6px;">课件理论（对应本页实现）</div>
+          <div class="small">
+            ① “一次划分”：选一个元素作支点，使得小于支点的移动到前面，大于支点的移动到后面，从而把 elem[s..t] 分成两部分 elem[s..i-1] 和 elem[i+1..t]。<br/>
+            ② low/high：设 elem[s] 为支点，low=s，high=t；逐渐减小 high 进行比较（不满足就交换），再逐渐增大 low 进行比较（不满足就交换）。<br/>
+            ③ 快速排序实现：先做一次划分，然后分别对左右两个子序列递归快排。<br/>
+            <span class="small">（页面右侧“伪代码高亮”会随步骤切换）</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div style="font-weight:800; margin-bottom:6px;">伪代码（跟着步骤高亮）</div>
+      <div id="pseudo" class="code mono"></div>
+
+      <div style="height:12px"></div>
+
+      <div style="font-weight:800; margin-bottom:6px;">递归栈（用栈模拟递归，便于演示）</div>
+      <div id="stack" class="stack"></div>
+
+      <div style="height:12px"></div>
+
+      <div class="small">
+        小提示：如果你觉得“交换把支点换走了”很奇怪——这里用的是“支点值 pivotVal 不变，但支点元素位置 pivotIndex 会随着交换移动”，最后 low==high 时支点自然就落在分割点上。
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+  </footer>
+
+<script>
+(() => {
+  // ---------------------------
+  // 课件示例数组（在课件“快速排序”示例里出现）
+  // ---------------------------
+  const EXAMPLE = "52, 49, 80, 36, 14, 58, 61, 97, 23, 75";
+
+  const $ = (id) => document.getElementById(id);
+
+  const arrInput = $("arrInput");
+  const arrView  = $("arrView");
+  const logBox   = $("log");
+  const rangeLabel = $("rangeLabel");
+  const pivotLabel = $("pivotLabel");
+  const lhLabel = $("lhLabel");
+  const pseudoBox = $("pseudo");
+  const stackBox  = $("stack");
+
+  const btnExample = $("btnExample");
+  const btnReset = $("btnReset");
+  const btnStart = $("btnStart");
+  const btnStep  = $("btnStep");
+  const btnAuto  = $("btnAuto");
+  const speedInput = $("speed");
+
+  // ---------------------------
+  // 演示状态
+  // ---------------------------
+  let arr = [];
+  let autoTimer = null;
+
+  // 递归栈：每个元素为 {l, r, depth}
+  let segStack = [];
+  let current = null;  // 当前处理的段
+  let part = null;     // 当前分割过程状态（一次划分）
+
+  // 用来显示伪代码高亮：存放当前高亮行号
+  let highlightKey = "idle";
+
+  // ---------------------------
+  // 工具：日志
+  // ---------------------------
+  const logs = [];
+  function log(msg, strong = false) {
+    const line = strong ? `<div class="line"><strong>${escapeHtml(msg)}</strong></div>`
+                        : `<div class="line">${escapeHtml(msg)}</div>`;
+    logs.push(line);
+    while (logs.length > 80) logs.shift();
+    logBox.innerHTML = logs.join("");
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function escapeHtml(s){
+    return ("" + s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
+  }
+
+  // ---------------------------
+  // 工具：渲染数组 + 指针 + 范围
+  // ---------------------------
+  function render() {
+    arrView.innerHTML = "";
+
+    const activeL = part ? part.l : (current ? current.l : null);
+    const activeR = part ? part.r : (current ? current.r : null);
+
+    for (let i = 0; i < arr.length; i++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      if (activeL !== null && i >= activeL && i <= activeR) cell.classList.add("activeRange");
+      if (part && i === part.pivotIndex) cell.classList.add("pivot");
+      if (part && i === part.low) cell.classList.add("low");
+      if (part && i === part.high) cell.classList.add("high");
+
+      const idx = document.createElement("div");
+      idx.className = "idx";
+      idx.textContent = i;
+      cell.appendChild(idx);
+
+      cell.appendChild(document.createTextNode(arr[i]));
+
+      const tag = document.createElement("div");
+      tag.className = "tag";
+      const tags = [];
+      if (part && i === part.pivotIndex) tags.push("<strong>pivot</strong>");
+      if (part && i === part.low) tags.push("low");
+      if (part && i === part.high) tags.push("high");
+      tag.innerHTML = tags.join(" · ");
+      cell.appendChild(tag);
+
+      arrView.appendChild(cell);
+    }
+
+    // 顶部标签
+    rangeLabel.textContent = (activeL === null) ? "-" : `[${activeL}, ${activeR}]`;
+    pivotLabel.textContent = part ? `${part.pivotVal} (idx=${part.pivotIndex})` : "-";
+    lhLabel.textContent = part ? `low=${part.low}, high=${part.high}` : "-";
+
+    // 栈显示
+    stackBox.innerHTML = segStack.map(seg =>
+      `<div class="seg"><b>depth ${seg.depth}</b> · [${seg.l}, ${seg.r}]</div>`
+    ).join("") || `<div class="small">（空）</div>`;
+
+    // 伪代码显示
+    pseudoBox.innerHTML = getPseudo(highlightKey);
+  }
+
+  function getPseudo(key){
+    // 用“课件叙述”对应的步骤来写伪代码（便于同学对照）
+    const hl = (k, text) => (key === k ? `<span class="hl">${text}</span>` : text);
+    return [
+      "QuickSort(elem, s, t):",
+      "  if s >= t: return",
+      `  ${hl("pickPivot", "pivot = elem[s]")}   // 选支点`,
+      `  ${hl("initLH", "low = s; high = t")}    // low/high 初值`,
+      "  while low < high:",
+      `    ${hl("scanHigh", "while low < high && elem[high] >= pivot: high--")}`,
+      `    ${hl("swapLH",   "if low < high: swap(elem[low], elem[high])")}`,
+      `    ${hl("scanLow",  "while low < high && elem[low] <= pivot: low++")}`,
+      `    ${hl("swapHL",   "if low < high: swap(elem[low], elem[high])")}`,
+      `  ${hl("finishPart", "i = low  // 一次划分完成，pivot 落到分割点")}`,
+      `  ${hl("recurse",    "QuickSort(elem, s, i-1); QuickSort(elem, i+1, t)")}`,
+    ].join("\n");
+  }
+
+  // ---------------------------
+  // 输入解析
+  // ---------------------------
+  function parseArray() {
+    const raw = arrInput.value.trim();
+    if (!raw) return [];
+    const parts = raw.split(/[\s,，]+/).filter(Boolean);
+    const nums = parts.map(x => Number(x));
+    if (nums.some(x => Number.isNaN(x))) {
+      throw new Error("输入里包含非数字：请只输入整数，用逗号或空格分隔。");
+    }
+    return nums;
+  }
+
+  // ---------------------------
+  // 演示：一次划分（partition）状态机
+  // ---------------------------
+  function initPartition(l, r, depth) {
+    // 课件：设 elem[s] 为支点，low=s，high=t
+    const pivotIndex = l;
+    part = {
+      l, r, depth,
+      pivotIndex,
+      pivotVal: arr[pivotIndex],
+      low: l,
+      high: r,
+      stage: "scanHigh"
+    };
+    highlightKey = "pickPivot";
+    log(`选择支点 pivot = elem[${l}] = ${part.pivotVal}`, true);
+    highlightKey = "initLH";
+    log(`初始化：low=${l}, high=${r}（准备开始“一次划分”）`, true);
+  }
+
+  function swap(i, j) {
+    if (i === j) return;
+    // 支点元素位置会随交换移动：便于可视化“pivot 真的在数组里移动”
+    if (part) {
+      if (part.pivotIndex === i) part.pivotIndex = j;
+      else if (part.pivotIndex === j) part.pivotIndex = i;
+    }
+    const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  }
+
+  function stepPartition() {
+    if (!part) return false;
+
+    const { pivotVal } = part;
+
+    // low==high：划分结束
+    if (part.low >= part.high) {
+      highlightKey = "finishPart";
+      log(`一次划分结束：low==high==${part.low}，分割点 i=${part.low}`, true);
+
+      // 课件：分为 elem[s..i-1] 与 elem[i+1..t]
+      const i = part.low;
+      const l = part.l, r = part.r, d = part.depth;
+
+      highlightKey = "recurse";
+      // 为了“像递归一样”（先左后右），用栈模拟：先压右、再压左
+      const right = { l: i + 1, r: r, depth: d + 1 };
+      const left  = { l: l,     r: i - 1, depth: d + 1 };
+
+      // 长度>=2才需要继续排序
+      const pushed = [];
+      if (right.l < right.r) { segStack.push(right); pushed.push(`[${right.l},${right.r}]`); }
+      if (left.l  < left.r)  { segStack.push(left);  pushed.push(`[${left.l},${left.r}]`); }
+
+      log(`递归（用栈模拟）：把需要继续排序的子序列压栈：${pushed.length ? pushed.join(" , ") : "无（两边长度都 <= 1）"}`, true);
+
+      part = null;
+      highlightKey = "idle";
+      return true;
+    }
+
+    // stage：严格按课件“逐渐减小 high / 逐渐增大 low / 不满足就交换”的节奏
+    if (part.stage === "scanHigh") {
+      highlightKey = "scanHigh";
+      if (part.low < part.high && arr[part.high] >= pivotVal) {
+        log(`high 扫描：elem[high]=${arr[part.high]} >= pivot(${pivotVal})，high-- -> ${part.high - 1}`);
+        part.high--;
+        return true;
+      } else {
+        // 找到 < pivot 的元素（或 low==high），准备交换
+        part.stage = "swapLH";
+        return true;
+      }
+    }
+
+    if (part.stage === "swapLH") {
+      highlightKey = "swapLH";
+      if (part.low < part.high) {
+        log(`交换：elem[low]=${arr[part.low]} 与 elem[high]=${arr[part.high]}（因为 elem[high] < pivot）`, true);
+        swap(part.low, part.high);
+        part.stage = "scanLow";
+        return true;
+      } else {
+        part.stage = "scanHigh";
+        return true;
+      }
+    }
+
+    if (part.stage === "scanLow") {
+      highlightKey = "scanLow";
+      if (part.low < part.high && arr[part.low] <= pivotVal) {
+        log(`low 扫描：elem[low]=${arr[part.low]} <= pivot(${pivotVal})，low++ -> ${part.low + 1}`);
+        part.low++;
+        return true;
+      } else {
+        part.stage = "swapHL";
+        return true;
+      }
+    }
+
+    if (part.stage === "swapHL") {
+      highlightKey = "swapHL";
+      if (part.low < part.high) {
+        log(`交换：elem[low]=${arr[part.low]} 与 elem[high]=${arr[part.high]}（因为 elem[low] > pivot）`, true);
+        swap(part.low, part.high);
+        part.stage = "scanHigh";
+        return true;
+      } else {
+        part.stage = "scanHigh";
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // ---------------------------
+  // 演示：总控制（递归栈 + 分割）
+  // ---------------------------
+  function pickNextSegment() {
+    // 弹出一个需要排序的子序列
+    current = segStack.pop() || null;
+    if (!current) return false;
+    log(`取出子序列：depth=${current.depth}，范围 [${current.l}, ${current.r}]`, true);
+    initPartition(current.l, current.r, current.depth);
+    return true;
+  }
+
+  function stepAll() {
+    // 若尚未开始，先取第一段
+    if (!part && !current && segStack.length === 0) {
+      log("还没有开始：请先点击“开始”。");
+      return;
+    }
+
+    // 若当前没有 partition，就从栈取一个子段开始 partition
+    if (!part) {
+      const ok = pickNextSegment();
+      if (!ok) {
+        log("完成：递归栈为空，数组已排序。", true);
+        stopAuto();
+        btnStep.disabled = true;
+        btnAuto.disabled = true;
+      }
+      render();
+      return;
+    }
+
+    // 有 partition：走一步
+    stepPartition();
+    render();
+
+    // 如果 partition 刚结束，current 段也就处理完了
+    if (!part) current = null;
+
+    // 如果栈空且无part：结束
+    if (!part && segStack.length === 0) {
+      log("完成：递归栈为空，数组已排序。", true);
+      stopAuto();
+      btnStep.disabled = true;
+      btnAuto.disabled = true;
+    }
+  }
+
+  // ---------------------------
+  // 自动播放
+  // ---------------------------
+  function startAuto() {
+    stopAuto();
+    const ms = Math.max(80, Number(speedInput.value || 550));
+    btnAuto.textContent = "暂停";
+    autoTimer = setInterval(stepAll, ms);
+  }
+  function stopAuto() {
+    if (autoTimer) clearInterval(autoTimer);
+    autoTimer = null;
+    btnAuto.textContent = "自动播放";
+  }
+
+  // ---------------------------
+  // 按钮行为
+  // ---------------------------
+  function resetAll() {
+    stopAuto();
+    logs.length = 0;
+    logBox.innerHTML = "";
+    arr = [];
+    segStack = [];
+    current = null;
+    part = null;
+    highlightKey = "idle";
+
+    btnStep.disabled = true;
+    btnAuto.disabled = true;
+
+    rangeLabel.textContent = "-";
+    pivotLabel.textContent = "-";
+    lhLabel.textContent = "-";
+    pseudoBox.textContent = getPseudo("idle");
+    stackBox.innerHTML = `<div class="small">（空）</div>`;
+    arrView.innerHTML = "";
+  }
+
+  function startDemo() {
+    stopAuto();
+    let nums;
+    try {
+      nums = parseArray();
+    } catch (e) {
+      alert(e.message);
+      return;
+    }
+    if (nums.length === 0) {
+      alert("请输入至少 1 个数字。");
+      return;
+    }
+    if (nums.length > 40) {
+      alert("为了演示清晰，本页建议 <= 40 个数字。你可以先用较短的数组练习。");
+      return;
+    }
+
+    resetAll();
+    arr = nums.slice();
+
+    // 用栈模拟递归：压入整段 [0, n-1]
+    segStack.push({ l: 0, r: arr.length - 1, depth: 0 });
+    log(`开始：把整个序列 [0, ${arr.length - 1}] 压入“递归栈”（准备分割）。`, true);
+
+    btnStep.disabled = false;
+    btnAuto.disabled = false;
+
+    render();
+  }
+
+  btnExample.addEventListener("click", () => {
+    arrInput.value = EXAMPLE;
+  });
+
+  btnReset.addEventListener("click", () => {
+    resetAll();
+    arrInput.value = "";
+  });
+
+  btnStart.addEventListener("click", startDemo);
+
+  btnStep.addEventListener("click", stepAll);
+
+  btnAuto.addEventListener("click", () => {
+    if (!autoTimer) startAuto();
+    else stopAuto();
+  });
+
+  // 初始化
+  arrInput.value = EXAMPLE;
+  resetAll();
+  pseudoBox.textContent = getPseudo("idle");
+})();
+</script>
+</body>
+</html>
