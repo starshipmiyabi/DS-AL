@@ -3,3 +3,11 @@ Hailstone/
 tp.dSYM/
 tp
 tp.cpp
+# 忽略 Mac 系统生成的垃圾文件
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.fseventsd
+.VolumeIcon.icns
